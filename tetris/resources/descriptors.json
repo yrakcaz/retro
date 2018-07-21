@@ -1,11 +1,24 @@
 {
     "tetrominos": [
-        { "id": 0, "x": 0, "y": 80, "w": 320, "h": 80 },
-        { "id": 1, "x": 400, "y": 0, "w": 240, "h": 160 },
-        { "id": 2, "x": 720, "y": 0, "w": 240, "h": 160 },
-        { "id": 3, "x": 1040, "y": 0, "w": 160, "h": 160 },
-        { "id": 4, "x": 160, "y": 240, "w": 240, "h": 160 },
-        { "id": 5, "x": 480, "y": 240, "w": 240, "h": 160 },
-        { "id": 6, "x": 800, "y": 240, "w": 240, "h": 160 }
+        { "id": 0, "x": 0, "y": 80, "w": 320, "h": 80,
+          "shape": [[true, true, true, true]] },
+        { "id": 1, "x": 400, "y": 0, "w": 240, "h": 160,
+          "shape": [[true, false, false],
+                    [true, true,  true]] },
+        { "id": 2, "x": 720, "y": 0, "w": 240, "h": 160,
+          "shape": [[false, false, true],
+                    [true,  true,  true]] },
+        { "id": 3, "x": 1040, "y": 0, "w": 160, "h": 160,
+          "shape": [[true, true],
+                    [true, true]] },
+        { "id": 4, "x": 160, "y": 240, "w": 240, "h": 160,
+          "shape": [[false, true, true],
+                    [true,  true, false]] },
+        { "id": 5, "x": 480, "y": 240, "w": 240, "h": 160,
+          "shape": [[false, true, false],
+                    [true,  true, true]] },
+        { "id": 6, "x": 800, "y": 240, "w": 240, "h": 160,
+          "shape": [[true,  true, false],
+                    [false, true, true]] }
     ]
 }
