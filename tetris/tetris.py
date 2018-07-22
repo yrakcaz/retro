@@ -2,6 +2,7 @@
 
 import json
 import numpy
+import os
 import pygame
 import random
 
@@ -41,6 +42,7 @@ class Tetromino:
         desc = descriptors["tetrominos"][self.id]
         rect = tuple(desc[i] for i in ("x", "y", "w", "h"))
         self.shape = numpy.array(desc["shape"], bool)
+        self.shape = numpy.rot90(self.shape)
 
         w = rect[2] / RATIO
         h = rect[3] / RATIO
@@ -48,16 +50,6 @@ class Tetromino:
         self.image = pygame.transform.scale(self.image, (w, h))
 
         self.dim = [w / CELL_WIDTH, h / CELL_WIDTH]
-
-    def bump(self, action):
-        assert self.dim, "tetromino not loaded yet"
-        if action == "left":
-            if self.pos[0] <= 0:
-                return True
-        if action == "right":
-            if self.pos[0] + self.dim[0] >= GRID_WIDTH:
-                return True
-        return False
 
     def rotate(self):
         self.image = pygame.transform.rotate(self.image, 90)
@@ -67,7 +59,10 @@ class Tetromino:
         if diff > 0:
             self.pos[0] -= diff
 
-    def update(self, action, grid):
+    def revert(self):
+        self.pos, self.dim, self.shape = self.previous
+
+    def update(self, action):
         if self.done:
             return
 
@@ -86,24 +81,12 @@ class Tetromino:
                 return
             self.last_update = ticks
 
-        if self.bump(action):
-            return
-
         if action == "right":
             self.pos[0] += 1
         elif action == "left":
             self.pos[0] -= 1
         elif action == "rotate":
             self.rotate()
-
-        self.falling = True
-        x, y = self.pos
-        w, h = self.dim
-        for i in range(w):
-            if y + h >= GRID_HEIGHT or \
-                (self.shape[h - 1][i] and grid[x + i][y + h]):
-                self.falling = False
-                break
 
     def draw(self, screen):
         assert self.image, "tetromino not loaded yet"
@@ -116,25 +99,68 @@ class Grid:
         self.image = image
         self.descriptors = descriptors
         self.grid = numpy.zeros((GRID_WIDTH, GRID_HEIGHT), dtype=bool)
+        self.orig = None
         self.tetrominos = []
         self.current = None
         self.next = Tetromino(random.randint(0, 6)) # TODO display it
 
-    def update_grid(self):
+    def clear_previous(self):
         if self.current.previous is not None:
             x, y = self.current.previous[0]
             w, h = self.current.previous[1]
             shape = self.current.previous[2]
             for i in range(w):
                 for j in range(h):
-                    if shape[j][i]:
-                        self.grid[x + i][y + j] = False
+                    if shape[i][j]:
+                        if self.orig is None or not self.orig[x + i][y + j]:
+                            self.grid[x + i][y + j] = False
+
+    def update_grid(self):
         x, y = self.current.pos
         w, h = self.current.dim
         shape = self.current.shape
         for i in range(w):
             for j in range(h):
-                self.grid[x + i][y + j] = shape[j][i]
+                if shape[i][j]:
+                    self.grid[x + i][y + j] = True
+        for i in range(GRID_HEIGHT):
+            if all(cell for cell in self.grid[:,i]):
+                print "tetris row " + str(i)
+
+    def print_grid(self, grid=None):
+        if grid is None:
+            grid = self.grid
+        assert len(grid), "grid not initialized yet"
+
+        for i in range(len(grid)):
+            row = ""
+            for j in range(len(grid[i])):
+                row += '*' if grid[i][j] else ' '
+            print row
+
+    def bump(self):
+        x, y = self.current.pos
+        w, h = self.current.dim
+        shape = self.current.shape
+
+        # collisions with walls and ground
+        if x < 0:
+            return True
+        if x + w > GRID_WIDTH:
+            return True
+        if y + h > GRID_HEIGHT:
+            self.current.falling = False
+            return True
+
+        # collisions with other tetrominos
+        for i in range(w):
+            for j in range(h):
+                if shape[i][j] and self.orig[x + i][y + j]:
+                    if self.current.previous[0][1] < y:
+                        self.current.falling = False
+                    return True
+
+        return False
 
     def update(self, action):
         if self.current is None or self.current.done:
@@ -143,7 +169,12 @@ class Grid:
             self.current = self.next
             self.current.load(self.image, self.descriptors)
             self.next = Tetromino(random.randint(0, 6))
-        self.current.update(action, self.grid)
+            self.orig = numpy.array(self.grid)
+
+        self.current.update(action)
+        self.clear_previous()
+        if self.bump():
+            self.current.revert()
         self.update_grid()
 
     def draw(self, screen):
@@ -154,6 +185,7 @@ class Grid:
 
 if __name__ == "__main__":
     pygame.init()
+    pygame.display.set_caption("Tetris")
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
     clock = pygame.time.Clock()
 
@@ -174,7 +206,8 @@ if __name__ == "__main__":
                 running = False
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
-                    paused = not pausedi
+                    paused = not paused
+                    grid.print_grid()
                 elif event.key == pygame.K_RIGHT:
                     action = "right"
                 elif event.key == pygame.K_LEFT:
