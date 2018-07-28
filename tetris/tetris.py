@@ -31,7 +31,7 @@ class Tetromino:
         self.pos = [3, 0] # position on the grid
         self.dim = []
         self.shape = None
-        self.image = None
+        self.color = ""
         self.last_update = 0
         self.level = 1
         self.falling = True
@@ -43,16 +43,14 @@ class Tetromino:
         rect = tuple(desc[i] for i in ("x", "y", "w", "h"))
         self.shape = numpy.array(desc["shape"], bool)
         self.shape = numpy.rot90(self.shape)
+        self.color = desc["color"]
 
         w = rect[2] / RATIO
         h = rect[3] / RATIO
-        self.image = tetrominos.subsurface(rect)
-        self.image = pygame.transform.scale(self.image, (w, h))
 
         self.dim = [w / CELL_WIDTH, h / CELL_WIDTH]
 
     def rotate(self):
-        self.image = pygame.transform.rotate(self.image, 90)
         self.dim[0], self.dim[1] = self.dim[1], self.dim[0]
         self.shape = numpy.rot90(self.shape)
         diff = self.pos[0] + self.dim[0] - GRID_WIDTH
@@ -88,21 +86,23 @@ class Tetromino:
         elif action == "rotate":
             self.rotate()
 
-    def draw(self, screen):
-        assert self.image, "tetromino not loaded yet"
-        x = self.pos[0] * CELL_WIDTH
-        y = (self.pos[1] - GRID_HIDDEN) * CELL_WIDTH
-        screen.blit(self.image, (x, y))
-
 class Grid:
     def __init__(self, image, descriptors):
         self.image = image
         self.descriptors = descriptors
-        self.grid = numpy.zeros((GRID_WIDTH, GRID_HEIGHT), dtype=bool)
+        self.grid = numpy.empty((GRID_WIDTH, GRID_HEIGHT), dtype=object)
         self.orig = None
         self.tetrominos = []
         self.current = None
         self.next = Tetromino(random.randint(0, 6)) # TODO display it
+        self.colors = {}
+        for desc in self.descriptors["tetrominos"]:
+            # In the descriptors, x and y represent the position
+            # in the image of a square of the tetromino's color.
+            rect = (desc["x"], desc["y"], CELL_WIDTH, CELL_WIDTH)
+            image = self.image.subsurface(rect)
+            image = pygame.transform.scale(image, (CELL_WIDTH, CELL_WIDTH))
+            self.colors[desc["color"]] = image
 
     def clear_previous(self):
         if self.current.previous is not None:
@@ -113,16 +113,17 @@ class Grid:
                 for j in range(h):
                     if shape[i][j]:
                         if self.orig is None or not self.orig[x + i][y + j]:
-                            self.grid[x + i][y + j] = False
+                            self.grid[x + i][y + j] = None
 
     def update_grid(self):
         x, y = self.current.pos
         w, h = self.current.dim
         shape = self.current.shape
+        color = self.current.color
         for i in range(w):
             for j in range(h):
                 if shape[i][j]:
-                    self.grid[x + i][y + j] = True
+                    self.grid[x + i][y + j] = color
         for i in range(GRID_HEIGHT):
             if all(cell for cell in self.grid[:,i]):
                 print "tetris row " + str(i)
@@ -178,10 +179,13 @@ class Grid:
         self.update_grid()
 
     def draw(self, screen):
-        assert self.current, "tetromino not loaded yet"
-        self.current.draw(screen)
-        for tetromino in self.tetrominos:
-            tetromino.draw(screen)
+        for i in range(GRID_WIDTH):
+            for j in range(GRID_HEIGHT)[2:]:
+                color = self.grid[i][j]
+                if color is not None:
+                    print color
+                    pos = (i * CELL_WIDTH, (j - 2) * CELL_WIDTH)
+                    screen.blit(self.colors[color], pos)
 
 if __name__ == "__main__":
     pygame.init()
