@@ -116,10 +116,14 @@ class Grid:
                             self.grid[x + i][y + j] = None
 
     def tetris(self):
-        for i in range(GRID_HEIGHT)[::-1]:
+        i = GRID_HEIGHT - 1
+        while i >= 0:
             if all(cell for cell in self.grid[:,i]):
                 for j in range(i + 1)[::-1][:-1]:
                     self.grid[:,j] = self.grid[:,j - 1]
+                i += 1
+            i -= 1
+
 
     def update_grid(self):
         x, y = self.current.pos
