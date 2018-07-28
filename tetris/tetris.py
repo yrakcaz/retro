@@ -9,6 +9,7 @@ import random
 FPS = 60
 
 BACKGROUND = (0, 0, 0)
+TEXT_COLOR = (255, 255, 255)
 
 ORIG_CELL_WIDTH = 80 # width of a cell on the resource image
 CELL_WIDTH = 20
@@ -85,6 +86,17 @@ class Tetromino:
             self.pos[0] -= 1
         elif action == "rotate":
             self.rotate()
+
+class Text:
+    def __init__(self, text):
+        self.text = text
+        self.font = pygame.font.SysFont("Comic Sans MS", CELL_WIDTH)
+        self.label = self.font.render(text, 1, TEXT_COLOR)
+
+    def draw(self, screen):
+        x = (SCREEN_WIDTH - self.label.get_rect().width) / 2
+        y = (SCREEN_HEIGHT - self.label.get_rect().height) / 2
+        screen.blit(self.label, (x, y))
 
 class Grid:
     def __init__(self, image, descriptors):
@@ -206,6 +218,7 @@ if __name__ == "__main__":
         descriptors = json.load(f)
 
     grid = Grid(tetrominos, descriptors)
+    pause = Text("PAUSED")
 
     paused = False
     while grid.running:
@@ -218,7 +231,6 @@ if __name__ == "__main__":
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     paused = not paused
-                    grid.print_grid()
                 elif event.key == pygame.K_RIGHT:
                     action = "right"
                 elif event.key == pygame.K_LEFT:
@@ -227,11 +239,11 @@ if __name__ == "__main__":
                      event.key == pygame.K_UP:
                     action = "rotate"
 
-        if paused:
-            continue
-
-        grid.update(action)
         grid.draw(screen)
+        if paused:
+            pause.draw(screen)
+        else:
+            grid.update(action)
 
         pygame.display.flip()
         clock.tick(FPS)

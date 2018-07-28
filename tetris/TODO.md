@@ -6,6 +6,8 @@
 
 * display tetris
 
+* display pause                                                         DONE
+
 * display game over (+replay)
 
 * add music
