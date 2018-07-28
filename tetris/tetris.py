@@ -174,6 +174,8 @@ class Grid:
             self.current.load(self.image, self.descriptors)
             self.next = Tetromino(random.randint(0, 6))
             self.orig = numpy.array(self.grid)
+            if any(cell for cell in self.orig[:,0]):
+                self.running = False # game over
 
         self.current.update(action)
         self.clear_previous()
