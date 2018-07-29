@@ -7,6 +7,7 @@ import pygame
 import random
 
 FPS = 60
+SECOND = 1000 # ms
 
 BACKGROUND = (0, 0, 0)
 TEXT_COLOR = (255, 255, 255)
@@ -69,7 +70,7 @@ class Tetromino:
 
         keys = pygame.key.get_pressed()
         ticks = pygame.time.get_ticks()
-        rate = (1 / self.level) * 1000
+        rate = (1 / self.level) * SECOND
         if keys[pygame.K_DOWN]:
             rate /= 10 # TODO make it configurable?
         if ticks - self.last_update >= rate:
@@ -106,6 +107,10 @@ class Grid:
         self.grid = numpy.empty((GRID_WIDTH, GRID_HEIGHT), dtype=object)
         self.orig = None
         self.current = None
+        self.last_update = 0
+        self.labels = { 1: Text("SINGLE"), 2: Text("DOUBLE"),
+                        3: Text("TRIPLE"), 4: Text("TETRIS") }
+        self.rows = 0
         self.next = Tetromino(random.randint(0, 6)) # TODO display it
         self.colors = {}
         for desc in self.descriptors["tetrominos"]:
@@ -128,14 +133,18 @@ class Grid:
                             self.grid[x + i][y + j] = None
 
     def tetris(self):
+        rows = 0
         i = GRID_HEIGHT - 1
         while i >= 0:
             if all(cell for cell in self.grid[:,i]):
                 for j in range(i + 1)[::-1][:-1]:
                     self.grid[:,j] = self.grid[:,j - 1]
+                rows += 1
                 i += 1
             i -= 1
-
+        if rows in self.labels:
+            self.rows = rows
+            self.last_update = pygame.time.get_ticks()
 
     def update_grid(self):
         x, y = self.current.pos
@@ -206,6 +215,13 @@ class Grid:
                 if color is not None:
                     pos = (i * CELL_WIDTH, (j - 2) * CELL_WIDTH)
                     screen.blit(self.colors[color], pos)
+        if self.rows in self.labels:
+            self.labels[self.rows].draw(screen)
+            ticks = pygame.time.get_ticks()
+            if ticks - self.last_update >= SECOND:
+                self.rows = 0
+                self.last_update = ticks
+
 
 if __name__ == "__main__":
     pygame.init()

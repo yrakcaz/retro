@@ -4,7 +4,7 @@
 
 * display bar on the left with score, level and next tetromino
 
-* display tetris
+* display tetris                                                        DONE
 
 * display pause                                                         DONE
 
@@ -13,5 +13,7 @@
 * add music
 
 * menu bar with options and stuff
+
+* split code in files
 
 * FIXMEs and TODOs
