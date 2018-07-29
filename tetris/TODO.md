@@ -8,7 +8,7 @@
 
 * display pause                                                         DONE
 
-* display game over (+replay)
+* display game over (+replay)                                           DONE
 
 * add music
 

@@ -9,8 +9,11 @@ import random
 FPS = 60
 SECOND = 1000 # ms
 
-BACKGROUND = (0, 0, 0)
-TEXT_COLOR = (255, 255, 255)
+BLACK = (0, 0, 0)
+WHITE = (255, 255, 255)
+RED = (255, 0, 0)
+GREEN = (0, 255, 0)
+BLUE = (0, 0, 255)
 
 ORIG_CELL_WIDTH = 80 # width of a cell on the resource image
 CELL_WIDTH = 20
@@ -26,6 +29,54 @@ DESCRIPTORS = RESOURCES + "descriptors.json"
 TETROMINOS = RESOURCES + "tetrominos.png"
 
 # TODO do a named tuple for pos and rects...
+
+class Text:
+    def __init__(self, text, color=WHITE):
+        self.text = text
+        self.font = pygame.font.SysFont("Comic Sans MS", CELL_WIDTH)
+        self.color = color
+        self.label = self.font.render(text, 1, self.color)
+        rect = self.label.get_rect()
+        self.dim = (rect.width, rect.height)
+        x = (SCREEN_WIDTH - self.label.get_rect().width) / 2
+        y = (SCREEN_HEIGHT - self.label.get_rect().height) / 2
+        self.pos = [x, y]
+
+    def draw(self, screen):
+        self.label = self.font.render(self.text, 1, self.color)
+        screen.blit(self.label, self.pos)
+
+class Menu:
+    def __init__(self, title, choices):
+        self.title = Text(title)
+        self.choices = [Text(choice) for choice in choices]
+        self.current = 0
+        self.choice = None
+        height = self.title.dim[1] + 40 + sum(choice.dim[1] + 20 for choice in self.choices) - 20
+        self.title.pos[1] = (SCREEN_HEIGHT - height) / 2
+        i = 0
+        for choice in self.choices:
+            choice.pos[1] = self.title.pos[1] + self.title.dim[1] + 40 + (i * (choice.dim[1] + 20))
+            i += 1
+
+    def update(self, action):
+        self.choices[self.current].color = RED
+        if action == "up":
+            self.current = len(self.choices) - 1 if self.current == 0 else self.current - 1
+        elif action == "down":
+            self.current = 0 if self.current == len(self.choices) - 1 else self.current + 1
+        elif action == "ok":
+            self.choices[self.current].color = BLUE
+            self.choice = self.choices[self.current].text
+
+    def draw(self, screen):
+        self.title.draw(screen)
+        i = 0
+        for choice in self.choices:
+            if i != self.current:
+                choice.color = WHITE
+            choice.draw(screen)
+            i += 1
 
 class Tetromino:
     def __init__(self, id):
@@ -88,17 +139,6 @@ class Tetromino:
         elif action == "rotate":
             self.rotate()
 
-class Text:
-    def __init__(self, text):
-        self.text = text
-        self.font = pygame.font.SysFont("Comic Sans MS", CELL_WIDTH)
-        self.label = self.font.render(text, 1, TEXT_COLOR)
-
-    def draw(self, screen):
-        x = (SCREEN_WIDTH - self.label.get_rect().width) / 2
-        y = (SCREEN_HEIGHT - self.label.get_rect().height) / 2
-        screen.blit(self.label, (x, y))
-
 class Grid:
     def __init__(self, image, descriptors):
         self.running = True
@@ -109,7 +149,7 @@ class Grid:
         self.current = None
         self.last_update = 0
         self.labels = { 1: Text("SINGLE"), 2: Text("DOUBLE"),
-                        3: Text("TRIPLE"), 4: Text("TETRIS") }
+                        3: Text("TRIPLE"), 4: Text("TETRIS", color=GREEN) }
         self.rows = 0
         self.next = Tetromino(random.randint(0, 6)) # TODO display it
         self.colors = {}
@@ -222,7 +262,6 @@ class Grid:
                 self.rows = 0
                 self.last_update = ticks
 
-
 if __name__ == "__main__":
     pygame.init()
     pygame.display.set_caption("Tetris")
@@ -234,16 +273,18 @@ if __name__ == "__main__":
         descriptors = json.load(f)
 
     grid = Grid(tetrominos, descriptors)
-    pause = Text("PAUSED")
+    pause = Menu("PAUSE", ["RESUME", "NEW GAME", "QUIT"])
+    gameover = Menu("GAME ORVER", ["NEW GAME", "QUIT"])
 
     paused = False
-    while grid.running:
-        screen.fill(BACKGROUND)
+    running = True
+    while running:
+        screen.fill(BLACK)
 
         action = None
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                grid.running = False
+                running = False
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     paused = not paused
@@ -251,13 +292,39 @@ if __name__ == "__main__":
                     action = "right"
                 elif event.key == pygame.K_LEFT:
                     action = "left"
-                elif event.key == pygame.K_SPACE or \
-                     event.key == pygame.K_UP:
+                elif not paused and grid.running and \
+                        ( event.key == pygame.K_SPACE or
+                          event.key == pygame.K_UP ):
                     action = "rotate"
+                elif event.key == pygame.K_UP:
+                    action = "up"
+                elif event.key == pygame.K_DOWN:
+                    action = "down"
+                elif event.key == pygame.K_SPACE or \
+                     event.key == pygame.K_RETURN:
+                    action = "ok"
 
         grid.draw(screen)
-        if paused:
+
+        if not grid.running:
+            gameover.update(action)
+            gameover.draw(screen)
+            if gameover.choice == "NEW GAME":
+                grid = Grid(tetrominos, descriptors)
+            elif gameover.choice == "QUIT":
+                running = False
+            gameover.choice = None
+        elif paused:
+            pause.update(action)
             pause.draw(screen)
+            paused = not paused
+            if pause.choice == "NEW GAME":
+                grid = Grid(tetrominos, descriptors)
+            elif pause.choice == "QUIT":
+                running = False
+            elif pause.choice != "RESUME":
+                paused = not paused
+            pause.choice = None
         else:
             grid.update(action)
 
