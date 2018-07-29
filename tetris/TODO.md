@@ -1,8 +1,8 @@
 # TODO
 
-* implement levels and scoring
+* implement levels and scoring                                          DONE
 
-* display bar on the left with score, level and next tetromino
+* display bar on the right with score, level and next tetromino         DONE
 
 * display tetris                                                        DONE
 

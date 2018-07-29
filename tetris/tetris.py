@@ -14,6 +14,7 @@ WHITE = (255, 255, 255)
 RED = (255, 0, 0)
 GREEN = (0, 255, 0)
 BLUE = (0, 0, 255)
+GREY = (100, 100, 100)
 
 ORIG_CELL_WIDTH = 80 # width of a cell on the resource image
 CELL_WIDTH = 20
@@ -22,13 +23,13 @@ GRID_HEIGHT = 22
 GRID_HIDDEN = 2 # the top 2 rows are hidden
 RATIO = ORIG_CELL_WIDTH / CELL_WIDTH
 SCREEN_WIDTH = CELL_WIDTH * GRID_WIDTH
+MARGIN = 6 * CELL_WIDTH
+TOTAL_SCREEN_WIDTH = SCREEN_WIDTH + MARGIN
 SCREEN_HEIGHT = CELL_WIDTH * (GRID_HEIGHT - GRID_HIDDEN)
 
 RESOURCES = "resources/" # TODO make it configurable
 DESCRIPTORS = RESOURCES + "descriptors.json"
 TETROMINOS = RESOURCES + "tetrominos.png"
-
-# TODO do a named tuple for pos and rects...
 
 class Text:
     def __init__(self, text, color=WHITE):
@@ -79,17 +80,20 @@ class Menu:
             i += 1
 
 class Tetromino:
-    def __init__(self, id):
+    def __init__(self, id, level):
         self.id = id
         self.pos = [3, 0] # position on the grid
         self.dim = []
         self.shape = None
         self.color = ""
         self.last_update = 0
-        self.level = 1
+        self.level = level
         self.falling = True
         self.done = False
         self.previous = None
+        self.rate = SECOND
+        for i in range(self.level):
+            self.rate -= self.rate / 3
 
     def load(self, tetrominos, descriptors):
         desc = descriptors["tetrominos"][self.id]
@@ -121,9 +125,9 @@ class Tetromino:
 
         keys = pygame.key.get_pressed()
         ticks = pygame.time.get_ticks()
-        rate = (1 / self.level) * SECOND
+        rate = self.rate
         if keys[pygame.K_DOWN]:
-            rate /= 10 # TODO make it configurable?
+            rate /= 10
         if ticks - self.last_update >= rate:
             if self.falling:
                 self.pos[1] += 1
@@ -139,6 +143,14 @@ class Tetromino:
         elif action == "rotate":
             self.rotate()
 
+    def draw(self, screen, pos, color):
+        for i in range(self.dim[0]):
+            for j in range(self.dim[1]):
+                if self.shape[i][j]:
+                    x = pos[0] + i * CELL_WIDTH
+                    y = pos[1] + j * CELL_WIDTH
+                    screen.blit(color, (x, y))
+
 class Grid:
     def __init__(self, image, descriptors):
         self.running = True
@@ -148,10 +160,18 @@ class Grid:
         self.orig = None
         self.current = None
         self.last_update = 0
-        self.labels = { 1: Text("SINGLE"), 2: Text("DOUBLE"),
-                        3: Text("TRIPLE"), 4: Text("TETRIS", color=GREEN) }
+        self.lines = { 1: (Text("SINGLE"), 40, 1),
+                       2: (Text("DOUBLE"), 100, 3),
+                       3: (Text("TRIPLE"), 300, 5),
+                       4: (Text("TETRIS", color=GREEN), 1200, 8),
+                       5: (Text("CLEAR", color=GREEN), 2000, 10) }
         self.rows = 0
-        self.next = Tetromino(random.randint(0, 6)) # TODO display it
+        self.score = 0
+        self.level = 0
+        self.count = 0
+        self.goal = 5 * (self.level + 1)
+        self.next = Tetromino(random.randint(0, 6), self.level)
+        self.next.load(self.image, self.descriptors)
         self.colors = {}
         for desc in self.descriptors["tetrominos"]:
             # In the descriptors, x and y represent the position
@@ -175,15 +195,27 @@ class Grid:
     def tetris(self):
         rows = 0
         i = GRID_HEIGHT - 1
+        cleared = True
         while i >= 0:
             if all(cell for cell in self.grid[:,i]):
                 for j in range(i + 1)[::-1][:-1]:
                     self.grid[:,j] = self.grid[:,j - 1]
                 rows += 1
                 i += 1
+            elif any(cell is not None for cell in self.grid[:,i]):
+                cleared = False
             i -= 1
-        if rows in self.labels:
+        if cleared:
+            rows = 5
+        if rows in self.lines:
             self.rows = rows
+            self.score += self.lines[rows][1] * (self.level + 1)
+            self.score += rows * GRID_WIDTH # FIXME really?
+            self.count += self.lines[rows][2]
+            if self.count >= self.goal:
+                self.level += 1
+                self.goal = 5 * (self.level + 1)
+                self.count = 0
             self.last_update = pygame.time.get_ticks()
 
     def update_grid(self):
@@ -236,8 +268,8 @@ class Grid:
     def update(self, action):
         if self.current is None or self.current.done:
             self.current = self.next
-            self.current.load(self.image, self.descriptors)
-            self.next = Tetromino(random.randint(0, 6))
+            self.next = Tetromino(random.randint(0, 6), self.level)
+            self.next.load(self.image, self.descriptors)
             self.orig = numpy.array(self.grid)
             if any(cell for cell in self.orig[:,0]):
                 self.running = False # game over
@@ -255,17 +287,51 @@ class Grid:
                 if color is not None:
                     pos = (i * CELL_WIDTH, (j - 2) * CELL_WIDTH)
                     screen.blit(self.colors[color], pos)
-        if self.rows in self.labels:
-            self.labels[self.rows].draw(screen)
+        if self.rows in self.lines:
+            self.lines[self.rows][0].draw(screen)
             ticks = pygame.time.get_ticks()
             if ticks - self.last_update >= SECOND:
                 self.rows = 0
                 self.last_update = ticks
 
+class Margin:
+    def __init__(self):
+        self.next = None
+        self.rect = (SCREEN_WIDTH, 0, MARGIN, SCREEN_HEIGHT)
+        x = SCREEN_WIDTH + CELL_WIDTH
+        self.score_title = Text("SCORE", color=BLACK)
+        h = self.score_title.dim[1]
+        self.score_title.pos = (x, CELL_WIDTH)
+        self.score = Text(str(0))
+        self.score.pos = (x, self.score_title.pos[1] + h + CELL_WIDTH)
+        self.level_title = Text("LEVEL", color=BLACK)
+        self.level_title.pos = (x, self.score.pos[1] + h + 2 * CELL_WIDTH)
+        self.level = Text(str(0))
+        self.level.pos = (x, self.level_title.pos[1] + h + CELL_WIDTH)
+        self.next_title = Text("NEXT", color=BLACK)
+        self.next_title.pos = (x, self.level.pos[1] + h + 2 * CELL_WIDTH)
+        self.next_pos = [x, self.next_title.pos[1] + h + CELL_WIDTH]
+
+    def update(self, next, score, level):
+        self.next = next
+        self.score.text = str(score)
+        self.level.text = str(level)
+
+    def draw(self, screen, colors):
+        self.margin = screen.subsurface(self.rect)
+        self.margin.fill(GREY)
+        self.score_title.draw(screen)
+        self.score.draw(screen)
+        self.level_title.draw(screen)
+        self.level.draw(screen)
+        self.next_title.draw(screen)
+        if self.next:
+            self.next.draw(screen, self.next_pos, colors[self.next.color])
+
 if __name__ == "__main__":
     pygame.init()
     pygame.display.set_caption("Tetris")
-    screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+    screen = pygame.display.set_mode((TOTAL_SCREEN_WIDTH, SCREEN_HEIGHT))
     clock = pygame.time.Clock()
 
     tetrominos = pygame.image.load(TETROMINOS)
@@ -273,6 +339,7 @@ if __name__ == "__main__":
         descriptors = json.load(f)
 
     grid = Grid(tetrominos, descriptors)
+    margin = Margin()
     pause = Menu("PAUSE", ["RESUME", "NEW GAME", "QUIT"])
     gameover = Menu("GAME ORVER", ["NEW GAME", "QUIT"])
 
@@ -311,6 +378,7 @@ if __name__ == "__main__":
             gameover.draw(screen)
             if gameover.choice == "NEW GAME":
                 grid = Grid(tetrominos, descriptors)
+                margin = Margin()
             elif gameover.choice == "QUIT":
                 running = False
             gameover.choice = None
@@ -320,6 +388,7 @@ if __name__ == "__main__":
             paused = not paused
             if pause.choice == "NEW GAME":
                 grid = Grid(tetrominos, descriptors)
+                margin = Margin()
             elif pause.choice == "QUIT":
                 running = False
             elif pause.choice != "RESUME":
@@ -327,6 +396,9 @@ if __name__ == "__main__":
             pause.choice = None
         else:
             grid.update(action)
+
+        margin.update(grid.next, grid.score, grid.level)
+        margin.draw(screen, grid.colors)
 
         pygame.display.flip()
         clock.tick(FPS)
