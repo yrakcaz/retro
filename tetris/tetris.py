@@ -30,6 +30,7 @@ SCREEN_HEIGHT = CELL_WIDTH * (GRID_HEIGHT - GRID_HIDDEN)
 RESOURCES = "resources/" # TODO make it configurable
 DESCRIPTORS = RESOURCES + "descriptors.json"
 TETROMINOS = RESOURCES + "tetrominos.png"
+THEME = RESOURCES + "dubstep.mp3" # TODO make it configurable
 
 class Text:
     def __init__(self, text, color=WHITE):
@@ -330,7 +331,10 @@ class Margin:
 
 if __name__ == "__main__":
     pygame.init()
+    pygame.font.init()
     pygame.display.set_caption("Tetris")
+    pygame.mixer.music.load(THEME)
+
     screen = pygame.display.set_mode((TOTAL_SCREEN_WIDTH, SCREEN_HEIGHT))
     clock = pygame.time.Clock()
 
@@ -342,6 +346,9 @@ if __name__ == "__main__":
     margin = Margin()
     pause = Menu("PAUSE", ["RESUME", "NEW GAME", "QUIT"])
     gameover = Menu("GAME ORVER", ["NEW GAME", "QUIT"])
+
+    pygame.mixer.music.play(-1)
+    playing = True
 
     paused = False
     running = True
@@ -374,11 +381,16 @@ if __name__ == "__main__":
         grid.draw(screen)
 
         if not grid.running:
+            if playing:
+                pygame.mixer.music.stop()
+                playing = False
             gameover.update(action)
             gameover.draw(screen)
             if gameover.choice == "NEW GAME":
                 grid = Grid(tetrominos, descriptors)
                 margin = Margin()
+                pygame.mixer.music.play(-1)
+                playing = True
             elif gameover.choice == "QUIT":
                 running = False
             gameover.choice = None
@@ -389,12 +401,19 @@ if __name__ == "__main__":
             if pause.choice == "NEW GAME":
                 grid = Grid(tetrominos, descriptors)
                 margin = Margin()
+                pygame.mixer.music.play(-1)
+                playing = True
             elif pause.choice == "QUIT":
                 running = False
             elif pause.choice != "RESUME":
                 paused = not paused
+                pygame.mixer.music.pause()
+                playing = False
             pause.choice = None
         else:
+            if not playing:
+                pygame.mixer.music.unpause()
+                playing = True
             grid.update(action)
 
         margin.update(grid.next, grid.score, grid.level)

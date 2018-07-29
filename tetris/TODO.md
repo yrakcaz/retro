@@ -10,7 +10,7 @@
 
 * display game over (+replay)                                           DONE
 
-* add music
+* add music                                                             DONE
 
 * menu bar with options and stuff
 
