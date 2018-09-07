@@ -119,7 +119,8 @@ class Tetromino:
         self.pos, self.dim, self.shape = self.previous
 
     def update(self, action):
-        if self.done:
+        if not self.falling:
+            self.done = True
             return
 
         self.previous = list(self.pos), list(self.dim), numpy.array(self.shape)
@@ -132,9 +133,6 @@ class Tetromino:
         if ticks - self.last_update >= rate:
             if self.falling:
                 self.pos[1] += 1
-            else:
-                self.done = True
-                return
             self.last_update = ticks
 
         if action == "right":
@@ -329,7 +327,7 @@ class Margin:
         if self.next:
             self.next.draw(screen, self.next_pos, colors[self.next.color])
 
-if __name__ == "__main__":
+def main(): # TODO we should probably clean the main up a little bit
     pygame.init()
     pygame.font.init()
     pygame.display.set_caption("Tetris")
@@ -361,6 +359,8 @@ if __name__ == "__main__":
                 running = False
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
+                    if not paused: # TODO add a debug mode and do this only if set
+                        grid.print_grid()
                     paused = not paused
                 elif event.key == pygame.K_RIGHT:
                     action = "right"
@@ -423,3 +423,6 @@ if __name__ == "__main__":
         clock.tick(FPS)
 
     pygame.quit()
+
+if __name__ == "__main__":
+    main()

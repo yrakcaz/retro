@@ -14,6 +14,8 @@
 
 * menu bar with options and stuff
 
-* split code in files
+* split code in files (at least Text and Menu in /lib for other games)
 
-* FIXMEs and TODOs
+* Add a leaderboard? or just some way to keep a best score
+
+* FIXMEs and TODOs + play to debug!
